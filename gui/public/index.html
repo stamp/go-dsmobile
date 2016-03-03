@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <link rel="icon" href="../../favicon.ico">
+
+    <title>Document archive (DSmobile)</title>
+
+	<link rel="stylesheet" href="node_modules/photoswipe/dist/photoswipe.css"> 
+	<link rel="stylesheet" href="node_modules/photoswipe/dist/default-skin/default-skin.css"> 
+
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css">
+
+    <link href="node_modules/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="dashboard.css" rel="stylesheet">
+
+
+	<!-- Core JS file -->
+	<script src="node_modules/photoswipe/dist/photoswipe.js"></script> 
+
+	<!-- UI JS file -->
+	<script src="node_modules/photoswipe/dist/photoswipe-ui-default.min.js"></script> 
+  </head>
+
+  <body>
+
+    <nav class="navbar navbar-inverse navbar-fixed-top">
+      <div class="container-fluid">
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="#">Document archive (DSmobile)</a>
+        </div>
+        <div id="navbar" class="navbar-collapse collapse">
+          <ul class="nav navbar-nav navbar-right">
+		  </ul>
+
+        </div>
+      </div>
+    </nav>
+
+			<div style="" class="">
+				<!-- Root element of PhotoSwipe. Must have class pswp. -->
+				<div id="pswp" class="pswp parent col-sm-9 col-md-10" tabindex="-1" role="dialog" aria-hidden="true">
+
+					<!-- Background of PhotoSwipe. 
+						 It's a separate element as animating opacity is faster than rgba(). -->
+					<div class="pswp__bg"></div>
+
+					<!-- Slides wrapper with overflow:hidden. -->
+					<div class="pswp__scroll-wrap">
+
+						<!-- Container that holds slides. 
+							PhotoSwipe keeps only 3 of them in the DOM to save memory.
+							Don't modify these 3 pswp__item elements, data is added later on. -->
+						<div class="pswp__container">
+							<div class="pswp__item"></div>
+							<div class="pswp__item"></div>
+							<div class="pswp__item"></div>
+						</div>
+
+						<!-- Default (PhotoSwipeUI_Default) interface on top of sliding area. Can be changed. -->
+						<div class="pswp__ui pswp__ui--hidden">
+
+							<div class="pswp__top-bar">
+
+								<!--  Controls are self-explanatory. Order can be changed. -->
+
+								<div class="pswp__counter"></div>
+
+								<button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+								<button class="pswp__button pswp__button--share" title="Share"></button>
+								<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+								<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+								<button class="pswp__button" title="Rotate right" style="background:none">
+									<span style="color:#fff" class="fa fa-repeat"></span>
+								</button>
+
+								<button class="pswp__button" title="Rotate left" style="background:none">
+									<span style="color:#fff" class="fa fa-undo"></span>
+								</button>
+
+								<!-- Preloader demo http://codepen.io/dimsemenov/pen/yyBWoR -->
+								<!-- element will get class pswp__preloader--active when preloader is running -->
+								<div class="pswp__preloader">
+									<div class="pswp__preloader__icn">
+									  <div class="pswp__preloader__cut">
+										<div class="pswp__preloader__donut"></div>
+									  </div>
+									</div>
+								</div>
+							</div>
+
+							<div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+								<div class="pswp__share-tooltip"></div> 
+							</div>
+
+							<button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+							</button>
+
+							<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+							</button>
+
+							<div class="pswp__caption">
+								<div class="pswp__caption__center"></div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<style>
+				.pswp {
+					position: fixed;top:50px;left:0px;bottom:0px;z-index:1000;
+				}
+
+				.thumb {
+					width:200px;
+					height:200px;
+					background:#000;
+					float:left;
+					margin:5px;
+					cursor:pointer;
+				}
+
+				.thumb>img {
+					margin:auto;
+				}
+			</style>
+
+
+	<div class="container-fluid">
+	  <div class="row">
+		<div class="col-sm-9 col-md-10 main">
+			<div id="thumbs"></div>
+        </div>
+		<div class="col-sm-3 col-md-2 sidebar">
+			Category
+				<ul class="nav nav-sidebar" id="categories"></ul>
+			Tags
+				<input type="text" class="form-control">
+        </div>
+      </div>
+    </div>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+	<script src="node_modules/bootstrap/dist/js/bootstrap.min.js"></script>
+
+			<script>
+
+			var items = [];
+			var template = document.getElementById("pswp"); // .pswp
+			var options = {
+				modal: false,
+				closeOnScroll: false,
+				closeElClasses: [],
+			};
+
+
+			var onThumbnailsClick = function(e) {
+				e = e || window.event;
+				e.preventDefault ? e.preventDefault() : e.returnValue = false;
+
+				var eTarget = e.target || e.srcElement;
+				var index = $(e.currentTarget).data('pswp-uid');
+
+				if(index >= 0) {
+					openPhotoSwipe(
+						index, 
+						e.currentTarget
+					);
+				}
+				return false;
+			};
+
+
+			var openPhotoSwipe = function(index, galleryElement, disableAnimation, fromURL) {
+				var pswpElement = document.querySelectorAll('.pswp')[0],
+					gallery;
+
+				// define options (if needed)
+	/*			options = {
+
+					// define gallery index (for URL)
+					galleryUID: galleryElement.getAttribute('data-pswp-uid'),
+
+					getThumbBoundsFn: function(index) {
+						// See Options -> getThumbBoundsFn section of documentation for more info
+						var thumbnail = items[index].el.getElementsByTagName('img')[0], // find thumbnail
+							pageYScroll = window.pageYOffset || document.documentElement.scrollTop,
+							rect = thumbnail.getBoundingClientRect(); 
+
+						return {x:rect.left, y:rect.top + pageYScroll, w:rect.width};
+					}
+
+				};*/
+
+				// PhotoSwipe opened from URL
+				if(fromURL) {
+					if(options.galleryPIDs) {
+						// parse real index when custom PIDs are used 
+						// http://photoswipe.com/documentation/faq.html#custom-pid-in-url
+						for(var j = 0; j < items.length; j++) {
+							if(items[j].pid == index) {
+								options.index = j;
+								break;
+							}
+						}
+					} else {
+						// in URL indexes start from 1
+						options.index = parseInt(index, 10) - 1;
+					}
+				} else {
+					options.index = parseInt(index, 10);
+				}
+
+				// exit if index not found
+				if( isNaN(options.index) ) {
+					return;
+				}
+
+				if(disableAnimation) {
+					options.showAnimationDuration = 0;
+				}
+
+				// Pass data to PhotoSwipe and initialize it
+				gallery = new PhotoSwipe( pswpElement, PhotoSwipeUI_Default, items, options);
+				gallery.init();
+			};
+
+
+			  url = 'ws://'+location.host+'/socket';
+			  c = new WebSocket(url);
+			  
+			  send = function(data){
+				//$("#output").append((new Date())+ " ==> "+data+"\n")
+				c.send(data)
+			  }
+
+			  c.onmessage = function(msg){
+				data = JSON.parse(msg.data)
+				//$("#output").append("<img src=\""+data.Path+"\">")
+
+				switch(data.type) {
+					case 'categories':
+						categories = $('#categories');
+						categories.empty();
+
+						$(data.data).each(function(index,row) {
+							categories.append('<li><a href="#/'+row.folder+'">'+row.name+'</a></li>');
+						});
+						break;
+					case 'file':
+						thumbs = $('#thumbs');
+							
+						el = $('<div class="thumb"><img src="'+data.data.thumb+'" /><div>');
+						el.data('pswp-uid', items.length);
+						el.click(onThumbnailsClick);
+
+						items.push(data.data);
+
+						thumbs.append(el);
+						break;
+					case 'files':
+						thumbs = $('#thumbs');
+						thumbs.empty();
+						
+						$(data.data).each(function(index,row) {
+							thumbs.append('<img src="'+row.thumb+'" />');
+						});
+
+						/*
+						items = data.data;
+						var photoSwipe = new PhotoSwipe(template, PhotoSwipeUI_Default, items, options);
+						photoSwipe.listen('updateScrollOffset', function(_offset) {
+							var r = template.getBoundingClientRect();
+							_offset.x += r.left;
+							_offset.y += r.top;
+						});
+						photoSwipe.listen('afterChange', function() {
+							console.log(this.currItem);
+						});
+						photoSwipe.init();*/
+						break;
+				}
+
+			  }
+
+			  c.onopen = function(){
+			  }
+			</script>
+
+
+</html>
+

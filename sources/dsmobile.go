@@ -1,4 +1,4 @@
-package main
+package sources
 
 import (
 	"bytes"
@@ -7,14 +7,36 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"mime/multipart"
 	"net/http"
 	"os"
 	"time"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/satori/go.uuid"
 )
+
+type PassThru struct {
+	io.Reader
+	total    int64 // Total # of bytes transferred
+	length   int64 // Expected length
+	progress float64
+}
+
+func (pt *PassThru) Read(p []byte) (int, error) {
+	n, err := pt.Reader.Read(p)
+	if n > 0 {
+		pt.total += int64(n)
+		percentage := float64(pt.total) / float64(pt.length) * float64(100)
+
+		// Update procentage every 2:nd %
+		if percentage-pt.progress > 2 {
+			pt.progress = percentage
+		}
+	}
+
+	return n, err
+}
 
 type XmlPicture struct {
 	NAME     string
@@ -65,14 +87,14 @@ func (ds *DsMobile) Stop() {
 	case ds.stop <- true:
 		// Sent stop to run loop, everything worked great
 	case <-time.After(time.Second):
-		log.Println("Failed to send stop to run loop")
+		log.Warn("DsMobile uploader: Failed to send stop to run loop")
 	}
 }
 
 func (ds *DsMobile) Loop() {
 	t := time.Second * 0
 
-	log.Println("Started loop")
+	log.Info("DsMobile uploader: Started")
 	for {
 		select {
 		case <-time.After(t):
@@ -80,10 +102,12 @@ func (ds *DsMobile) Loop() {
 
 			err := ds.downloadAll()
 			if err != nil {
-				log.Println(err)
+				log.WithFields(log.Fields{
+					"err": err,
+				}).Warn("DsMobile uploader: failed to download")
 			}
 		case <-ds.stop:
-			log.Println("Stopped loop")
+			log.Info("DsMobile uploader: Stopped")
 			return
 		}
 	}
@@ -95,14 +119,21 @@ func (ds *DsMobile) downloadAll() error {
 		return err
 	}
 
+	if len(*files) == 0 {
+		return nil
+	}
+
+	log.Info("Found ", len(*files), " files to download..")
 	for _, allFile := range *files {
 		picture := allFile.Picture
 
+		log.Info("Downloading ", ds.address+picture.FPATH)
 		uuid, err := ds.downloadFile(ds.address+picture.FPATH, "storage/")
 		if err != nil {
 			return err
 		}
 
+		log.Info("Removing ", ds.address+picture.FPATH, " from SD card")
 		err = ds.deleteFile(ds.address+"/.xmlalbum.page_index=1.chipsipcmd", picture.FPATH)
 		if err != nil {
 			return err
@@ -199,10 +230,11 @@ func (ds *DsMobile) get(url string) (io.Reader, error) {
 	}
 
 	req.Header.Add("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(ds.username+":"+ds.password)))
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 
-	return resp.Body, nil
+	return &PassThru{Reader: resp.Body, length: resp.ContentLength}, nil
 }

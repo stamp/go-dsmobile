@@ -3,13 +3,28 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"net/http"
+	"fmt"
 	"os"
 
-	"github.com/gin-gonic/gin"
-	"github.com/gorilla/websocket"
+	"./sources"
+	"github.com/facebookgo/inject"
 	"github.com/koding/multiconfig"
+	"github.com/stamp/go-dsmobile/gui"
+	"github.com/stamp/go-dsmobile/types"
+
+	log "github.com/Sirupsen/logrus"
 )
+
+func init() {
+	// Log as JSON instead of the default ASCII formatter.
+	//	log.SetFormatter(&log.JSONFormatter{})
+
+	// Output to stderr instead of stdout, could also be a file.
+	log.SetOutput(os.Stderr)
+
+	// Only log the warning severity or above.
+	log.SetLevel(log.DebugLevel)
+}
 
 type Config struct {
 	WebPort  string `default:"3001"`
@@ -18,21 +33,78 @@ type Config struct {
 	Password string
 }
 
+type Saveable interface {
+	Save() error
+}
+
+type Loadable interface {
+	Load() error
+}
+
+type Startable interface {
+	Start() error
+}
+
 func main() {
 	// Load the main config
 	config := &Config{}
-	m := multiconfig.NewWithPath("config.json")
+	m := multiconfig.NewWithPath("config/config.json")
 	m.Load(config)
 	saveConfigToFile(config)
 
-	ds := NewDsMobile(config.Ip, config.Username, config.Password)
+	log.Info("Creating services")
+	services := make([]interface{}, 0)
+	services = append(services, gui.NewWebserver(config.WebPort))
+	categories := types.NewCategories()
+	services = append(services, categories)
 
+	// DS mobile source
+	ds := sources.NewDsMobile(config.Ip, config.Username, config.Password)
+	services = append(services, ds)
 	// Start the ping monitor
-	go pinger(ds)
+	services = append(services, sources.NewPinger(ds))
 
 	// Start the hub for websocket messages
-	hub := NewHub()
-	go hub.Run()
+	hub := gui.NewHub()
+	services = append(services, hub)
+
+	err := inject.Populate(services...)
+	if err != nil {
+		panic("Failed to populate: " + err.Error())
+	}
+
+	for _, s := range services {
+		log.WithFields(log.Fields{
+			"addr": fmt.Sprintf("%p", s),
+		}).Debugf("- %T", s)
+	}
+
+	// First load everything
+	log.Info("Loading data")
+	for _, s := range services {
+		if s, ok := s.(Loadable); ok {
+			if err := s.Load(); err != nil {
+				log.Errorf("Failed load %T: %s", s, err)
+			}
+
+			log.WithFields(log.Fields{
+				"addr": fmt.Sprintf("%p", s),
+			}).Debugf("- %T", s)
+		}
+	}
+
+	// Start all services
+	log.Info("Starting services")
+	for _, s := range services {
+		if s, ok := s.(Startable); ok {
+			if err := s.Start(); err != nil {
+				log.Errorf("Failed start %T: %s", s, err)
+			}
+			log.WithFields(log.Fields{
+				"addr": fmt.Sprintf("%p", s),
+			}).Debugf("- %T", s)
+		}
+	}
 
 	go func() {
 		for {
@@ -51,47 +123,17 @@ func main() {
 				}
 
 				msg, _ := json.Marshal(e)
-				hub.broadcast <- msg
+				hub.Broadcast <- msg
 			}
 
 		}
 	}()
 
-	// Start up the webserver
-	r := gin.Default()
-	r.LoadHTMLFiles("public/index.html")
-	r.StaticFS("/storage", http.Dir("storage"))
-
-	r.GET("/", func(c *gin.Context) {
-		c.HTML(200, "index.html", nil)
-	})
-
-	r.GET("/socket", func(c *gin.Context) {
-		wshandler(c.Writer, c.Request, hub)
-	})
-
-	r.Run(":" + config.WebPort)
-}
-
-var wsupgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-}
-
-func wshandler(w http.ResponseWriter, r *http.Request, hub *Hub) {
-	ws, err := wsupgrader.Upgrade(w, r, nil)
-	if err != nil {
-		return
-	}
-	c := &connection{send: make(chan []byte, 256), ws: ws, h: hub}
-	c.h.register <- c
-	defer func() { c.h.unregister <- c }()
-	go c.writer()
-	c.reader()
+	select {}
 }
 
 func saveConfigToFile(config *Config) error {
-	configFile, err := os.Create("config.json")
+	configFile, err := os.Create("config/config.json")
 	if err != nil {
 		return err
 	}
